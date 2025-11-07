@@ -277,4 +277,151 @@ class ADDIE:
             self._write_md(os.path.join(course_path, "assessment_plan.md"), assessment_plan)
 
         return result
+    
+    
+
+    def develop_modules_materials(
+        self,
+        course_name: str,
+        course_description: str,
+        learning_objectives: str,
+        syllabus: Optional[str] = None,
+        slides_plan: Optional[str] = None,
+        assessment_plan: Optional[str] = None,
+        do_research: bool = True,
+        use_checkpoint: bool = True,
+        checkpoint_dir: Optional[str] = None,
+    ) -> str:
+        """
+        Build a Module Design (the 'design' input for Develop phase) by reading syllabus, slides_plan,
+        and assessment_plan. Falls back to generate_course if those artifacts are missing.
+        Saves result as module_design-<module>.md in the course folder.
+        """
+        key = self._make_checkpoint_key(course_name, course_description, learning_objectives, do_research, stage="parts")
+        course_path = self._course_dir(course_name, key, checkpoint_dir)
+
+        # Load inputs from checkpointed .md if not provided
+        def _read_or_value(value: Optional[str], filename: str) -> Optional[str]:
+            if value and value.strip():
+                return value
+            return self._read_md(os.path.join(course_path, filename))
+
+        syllabus_text = _read_or_value(syllabus, "syllabus.md")
+        slides_text = _read_or_value(slides_plan, "slides_plan.md")
+        assessment_text = _read_or_value(assessment_plan, "assessment_plan.md")
+
+        # If any input missing, generate course artifacts first
+        if not all([syllabus_text, slides_text, assessment_text]):
+            _ = self.generate_course(
+                course_name=course_name,
+                course_description=course_description,
+                learning_objectives=learning_objectives,
+                do_research=do_research,
+                use_checkpoint=use_checkpoint,
+                checkpoint_dir=checkpoint_dir,
+            )
+            syllabus_text = self._read_md(os.path.join(course_path, "syllabus.md")) or ""
+            slides_text = self._read_md(os.path.join(course_path, "slides_plan.md")) or ""
+            assessment_text = self._read_md(os.path.join(course_path, "assessment_plan.md")) or ""
+
+        # Seperate modules design from above syllabus, slides, assessment
+        modules = self.design.extract_modules_from_design_output(
+            syllabus_text, slides_text, assessment_text
+        )
+
+        # Generate Modules Design via Develop
+        modules_materials = []  # ensure defined even if not found
+        for module in modules:
+            # Create module checkpoint dir
+            module_path = os.path.join(course_path, module["title"])
+            if not os.path.exists(module_path):
+                os.makedirs(module_path, exist_ok=True)
+
+            # Generate Module materials
+            module_materials = self.develop.develop_module(
+                module_title=module["title"],
+                design = f"Syllabus:\n{module['script']}\n\nSlides Plan:\n{module['slides_plan']}\n\nAssessment Plan:\n{module['assessment_plan']}",
+                course_name=course_name,
+                do_research=do_research,
+                use_checkpoint=use_checkpoint,
+                checkpoint_dir=module_path,
+            )
+            modules_materials.append(module_materials)
+
+
+        return modules_materials
+
+    async def async_develop_modules_materials(
+        self,
+        course_name: str,
+        course_description: str,
+        learning_objectives: str,
+        module_title: str,
+        syllabus: Optional[str] = None,
+        slides_plan: Optional[str] = None,
+        assessment_plan: Optional[str] = None,
+        do_research: bool = True,
+        use_checkpoint: bool = True,
+        checkpoint_dir: Optional[str] = None,
+    ) -> str:
+        """
+        Async variant. Builds a Module Design (the 'design' input for Develop phase) by reading syllabus,
+        slides_plan, and assessment_plan. Falls back to async_generate_course if missing. Saves to .md.
+        """
+        key = self._make_checkpoint_key(course_name, course_description, learning_objectives, do_research, stage="parts")
+        course_path = self._course_dir(course_name, key, checkpoint_dir)
+
+        def _read_or_value(value: Optional[str], filename: str) -> Optional[str]:
+            if value and value.strip():
+                return value
+            return self._read_md(os.path.join(course_path, filename))
+
+        syllabus_text = _read_or_value(syllabus, "syllabus.md")
+        slides_text = _read_or_value(slides_plan, "slides_plan.md")
+        assessment_text = _read_or_value(assessment_plan, "assessment_plan.md")
+
+        if not all([syllabus_text, slides_text, assessment_text]):
+            _ = await self.async_generate_course(
+                course_name=course_name,
+                course_description=course_description,
+                learning_objectives=learning_objectives,
+                do_research=do_research,
+                use_checkpoint=use_checkpoint,
+                checkpoint_dir=checkpoint_dir,
+            )
+            syllabus_text = self._read_md(os.path.join(course_path, "syllabus.md")) or ""
+            slides_text = self._read_md(os.path.join(course_path, "slides_plan.md")) or ""
+            assessment_text = self._read_md(os.path.join(course_path, "assessment_plan.md")) or ""
+
+        # Seperate modules design from above syllabus, slides, assessment
+        modules = self.design.extract_modules_from_design_output(
+            syllabus_text, slides_text, assessment_text
+        )
+
+        # Generate Modules Design via Develop (async)
+        modules_materials = []
+        for module in modules:
+            module_path = os.path.join(course_path, module["title"])
+            if not os.path.exists(module_path):
+                os.makedirs(module_path, exist_ok=True)
+
+            module_materials = await self.develop.async_develop_module(
+                module_title=module["title"],
+                design = f"Syllabus:\n{module['script']}\n\nSlides Plan:\n{module['slides_plan']}\n\nAssessment Plan:\n{module['assessment_plan']}",
+                course_name=course_name,
+                do_research=do_research,
+                use_checkpoint=use_checkpoint,
+                checkpoint_dir=module_path,
+            )
+            modules_materials.append(module_materials)
+
+        return module_materials
+    
+
+    # Deprecated wrappers for backward compatibility
+    def generate_chapter_design(self, *args, **kwargs) -> str:
+        return self.generate_module_design(*args, **kwargs)
+
+    async def async_generate_chapter_design(self, *args, **kwargs) -> str:
+        return await self.async_generate_module_design(*args, **kwargs)
 
