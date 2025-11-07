@@ -1,6 +1,7 @@
 from src.services.llm import client, async_client
 from src.utils import fast_search, async_fast_search
 from typing import Optional, Dict
+import json
 
 
 class Design:
@@ -311,4 +312,48 @@ class Design:
             temperature=0.7,
         )
         return response.choices[0].message.content
+    
+    def extract_modules_from_design_output(self, syllabus: str, slides: str, assessments: str) -> Dict[str, Dict[str, str]]:
+        """
+        Helper to extract individual module designs from combined syllabus, slides, and assessments text.
+        Returns a dict mapping module titles to their design components.
+        """
+        shared_content = f"""Generated designs:
+Syllabus: {syllabus}
+Slides: {slides}
+Assessments: {assessments}
 
+Response template: [
+    {{
+        "module_title": "<Module Title>",
+        "Scipt": "<Module Content>",
+        "slides_plan": "<Module Slides Plan Content>",
+        "assessment_plan": "<Module Assessment Plan Content>"
+    }}
+]
+"""
+        prompt = """
+        You are an expert course designer skilled at breaking down course designs into individual module components.
+        Given the combined syllabus, slide planning, and assessment planning, extract each module's title, content outline, slide plan, and assessment plan.
+        Provide the response in the specified JSON format.
+        """
+        response = self.client.chat.completions.create(
+            model="openai/gpt-oss-20b",
+            messages=[
+                {"role": "system", "content": "You are an expert course designer skilled at breaking down course designs into individual module components."},
+                {"role": "user", "content": prompt + shared_content},
+            ],
+            max_tokens=3000,
+            temperature=0.3,
+        )
+        modules_list = json.loads(response.choices[0].message.content.strip("```json").strip("```").strip())
+        modules_array = []
+        for module in modules_list:
+            modules_array.append({
+                "title": module["module_title"],
+                "script": module["Scipt"],
+                "slides_plan": module["slides_plan"],
+                "assessment_plan": module["assessment_plan"],
+            })
+
+        return modules_array

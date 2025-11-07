@@ -23,7 +23,7 @@ addie = ADDIE()
 # )
 
 # Marketing fundamental for non marketing professionals
-result = addie.generate_course(
+course_result = addie.generate_course(
     course_name="Marketing Fundamentals for Non-Marketing Professionals",
     course_description="This course provides non-marketing professionals with a comprehensive understanding of fundamental marketing concepts, strategies, and tools to enhance their ability to contribute to marketing efforts within their organizations.",
     learning_objectives="Understand basic marketing principles, Learn about market research and consumer behavior, Develop skills in digital marketing and social media strategies",
@@ -31,4 +31,14 @@ result = addie.generate_course(
     use_checkpoint=True
 )
 
-print(result)
+modules = addie.develop_modules_materials(
+    course_name="Marketing Fundamentals for Non-Marketing Professionals",
+    course_description="This course provides non-marketing professionals with a comprehensive understanding of fundamental marketing concepts, strategies, and tools to enhance their ability to contribute to marketing efforts within their organizations.",
+    learning_objectives="Understand basic marketing principles, Learn about market research and consumer behavior, Develop skills in digital marketing and social media strategies",
+    do_research=True,
+    use_checkpoint=True
+)
+
+
+
+print(modules)
